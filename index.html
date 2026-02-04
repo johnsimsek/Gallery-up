@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inky Vibes Story Gallery</title>
+  <style>
+    :root{--bg:#0b0d12;--line:rgba(255,255,255,.12);--text:#e6eaf2;--shadow:0 20px 60px rgba(0,0,0,.45);--radius:18px;--accent:#7c3aed;}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      min-height:100dvh; /* iPhone/Safari fix */
+      background:radial-gradient(1200px 800px at 30% 10%, #1a2140 0%, var(--bg) 45%, #07080b 100%);
+      color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    }
+
+    /* ✅ GRID LAYOUT: boşluk problemi biter */
+    .stage{
+      min-height:100dvh;
+      max-width:1100px;
+      margin:0 auto;
+      padding:18px;
+
+      display:grid;
+      grid-template-rows: 1fr auto; /* ÜST: viewer, ALT: thumbs */
+      gap:10px;
+    }
+
+    .viewer{
+      position:relative;
+      min-height:320px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:var(--shadow);
+      user-select:none;-webkit-user-select:none;
+      touch-action:pan-y;
+    }
+
+    .main-img{
+      width:100%;
+      height:100%;
+      object-fit:cover; /* story gibi */
+      display:block;
+      background:rgba(0,0,0,.25);
+      transform:translateZ(0);
+      cursor:zoom-in;
+    }
+
+    .topbar{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-direction:column;gap:10px;pointer-events:none;z-index:10;}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .title{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);background:rgba(0,0,0,.35);backdrop-filter:blur(10px);
+      border-radius:999px;pointer-events:auto;max-width:70%;}
+    .dot{width:10px;height:10px;border-radius:99px;background:var(--accent);box-shadow:0 0 0 4px rgba(124,58,237,.18);flex:0 0 auto;}
+    .caption{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;}
+    .actions{display:flex;gap:8px;pointer-events:auto;}
+    .icon-btn{border:1px solid var(--line);background:rgba(0,0,0,.35);color:var(--text);border-radius:12px;padding:10px 12px;cursor:pointer;
+      backdrop-filter:blur(10px);font-size:14px;line-height:1}
+    .icon-btn:active{transform:translateY(1px);} .icon-btn:hover{border-color:rgba(255,255,255,.25);}
+
+    .progress{display:flex;gap:6px;padding:0 4px;pointer-events:none;}
+    .progress .seg{height:4px;flex:1;background:rgba(255,255,255,.18);border-radius:99px;overflow:hidden;}
+    .progress .fill{height:100%;width:0%;background:rgba(255,255,255,.9);border-radius:99px;}
+
+    .loader{position:absolute;inset:0;background:linear-gradient(110deg,rgba(255,255,255,.08) 8%,rgba(255,255,255,.14) 18%,rgba(255,255,255,.08) 33%);
+      background-size:200% 100%;animation:shimmer 1.2s linear infinite;opacity:0;pointer-events:none;z-index:7;}
+    .loader.is-on{opacity:1}
+    @keyframes shimmer{to{background-position-x:-200%;}}
+
+    /* Sağ/sol ikon ok */
+    .navbtn{position:absolute;top:50%;transform:translateY(-50%);z-index:9;
+      width:44px;height:44px;border-radius:999px;border:1px solid var(--line);
+      background:rgba(0,0,0,.35);color:var(--text);cursor:pointer;display:grid;place-items:center;
+      backdrop-filter:blur(10px);}
+    .navbtn:hover{border-color:rgba(255,255,255,.25)}
+    .navbtn.left{left:10px}
+    .navbtn.right{right:10px}
+    .navbtn svg{width:22px;height:22px}
+
+    /* ✅ ALT THUMBS: daha küçük + arada boşluk yok */
+    .thumbs{
+      height:86px;
+      padding:10px;
+      display:flex;
+      gap:10px;
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      background:rgba(0,0,0,.28);
+      overflow-x:auto;
+      overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      box-shadow:var(--shadow);
+      position:static; /* sticky kapalı */
+    }
+    .thumb{border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;width:86px;height:56px;flex:0 0 auto;background:rgba(255,255,255,.06);cursor:pointer;padding:0}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+    .thumb.is-active{outline:2px solid rgba(124,58,237,.9);box-shadow:0 0 0 6px rgba(124,58,237,.18);}
+
+    /* LIGHTBOX */
+    .lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px;}
+    .lb.is-on{display:flex;}
+    .lb-img{max-width:min(1100px,96vw);max-height:92vh;object-fit:contain;border-radius:16px;box-shadow:0 30px 90px rgba(0,0,0,.6);cursor:zoom-out;}
+    .lb-top{position:fixed;left:16px;right:16px;top:16px;display:flex;justify-content:space-between;gap:10px;z-index:10000;}
+    .lb-pill{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);background:rgba(0,0,0,.35);backdrop-filter:blur(10px);
+      border-radius:999px;color:var(--text);font-size:14px;max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .lb-close{border:1px solid var(--line);background:rgba(0,0,0,.35);color:var(--text);border-radius:12px;padding:10px 12px;cursor:pointer;backdrop-filter:blur(10px);}
+
+    .lb-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:10000;width:52px;height:52px;border-radius:999px;border:1px solid var(--line);
+      background:rgba(0,0,0,.35);color:var(--text);cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(10px);}
+    .lb-nav.left{left:16px}
+    .lb-nav.right{right:16px}
+
+    @media (max-width:600px){
+      .stage{padding:12px}
+      .navbtn{width:40px;height:40px}
+      .thumbs{height:82px}
+      .thumb{width:78px;height:52px}
+      .lb-nav{width:46px;height:46px}
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="viewer" id="viewer">
+      <button class="navbtn left" id="prevIcon" aria-label="Previous">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+      <button class="navbtn right" id="nextIcon" aria-label="Next">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 6l6 6-6 6"/>
+        </svg>
+      </button>
+
+      <img id="mainImg" class="main-img" alt="" />
+
+      <div class="topbar">
+        <div class="progress" id="progress" aria-hidden="true"></div>
+        <div class="row">
+          <div class="title">
+            <span class="dot"></span>
+            <span id="caption" class="caption">Gallery</span>
+          </div>
+          <div class="actions">
+            <button class="icon-btn" id="playPauseBtn" title="Pause/Play">❚❚</button>
+            <button class="icon-btn" id="fsBtn" title="Fullscreen">⛶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="loader" id="loader" aria-hidden="true"></div>
+    </section>
+
+    <nav class="thumbs" id="thumbs" aria-label="Thumbnails"></nav>
+  </main>
+
+  <div class="lb" id="lb" aria-hidden="true">
+    <div class="lb-top">
+      <div class="lb-pill" id="lbCaption">Gallery</div>
+      <button class="lb-close" id="lbClose" aria-label="Close">✕</button>
+    </div>
+    <button class="lb-nav left" id="lbPrev" aria-label="Previous">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+    </button>
+    <button class="lb-nav right" id="lbNext" aria-label="Next">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 6l6 6-6 6"/>
+      </svg>
+    </button>
+    <img class="lb-img" id="lbImg" alt="" />
+  </div>
+
+  <script>
+    // FOTOĞRAFLAR index.html ile AYNI KLASÖRDE OLMALI: 01.jpg, 02.jpg ...
+    const IMAGES = [
+      { src: "01.jpg", caption: "Tattoo 01" },
+      { src: "02.jpg", caption: "Tattoo 02" },
+      { src: "03.jpg", caption: "Tattoo 03" },
+      { src: "04.jpg", caption: "Tattoo 04" },
+      { src: "05.jpg", caption: "Tattoo 05" },
+      { src: "06.jpg", caption: "Tattoo 06" },
+      { src: "07.jpg", caption: "Tattoo 07" },
+      { src: "08.jpg", caption: "Tattoo 08" },
+      { src: "09.jpg", caption: "Tattoo 09" },
+      { src: "10.jpg", caption: "Tattoo 10" },
+      { src: "11.jpg", caption: "Tattoo 11" },
+      { src: "12.jpg", caption: "Tattoo 12" }
+    ];
+
+    const STORY_DURATION = 5500;
+
+    const mainImg = document.getElementById("mainImg");
+    const captionEl = document.getElementById("caption");
+    const thumbsEl = document.getElementById("thumbs");
+    const progressEl = document.getElementById("progress");
+    const loaderEl = document.getElementById("loader");
+    const prevIcon = document.getElementById("prevIcon");
+    const nextIcon = document.getElementById("nextIcon");
+    const playPauseBtn = document.getElementById("playPauseBtn");
+    const fsBtn = document.getElementById("fsBtn");
+    const viewer = document.getElementById("viewer");
+
+    const lb = document.getElementById("lb");
+    const lbImg = document.getElementById("lbImg");
+    const lbCaption = document.getElementById("lbCaption");
+    const lbClose = document.getElementById("lbClose");
+    const lbPrev = document.getElementById("lbPrev");
+    const lbNext = document.getElementById("lbNext");
+
+    let index = 0, playing = true, rafId = null, startTime = performance.now();
+    const segs = [], thumbButtons = [];
+
+    function buildProgress(){
+      progressEl.innerHTML = ""; segs.length = 0;
+      for(let i=0;i<IMAGES.length;i++){
+        const seg=document.createElement("div"); seg.className="seg";
+        const fill=document.createElement("div"); fill.className="fill";
+        seg.appendChild(fill); progressEl.appendChild(seg); segs.push(fill);
+      }
+    }
+
+    function buildThumbs(){
+      thumbsEl.innerHTML=""; thumbButtons.length=0;
+      IMAGES.forEach((img,i)=>{
+        const b=document.createElement("button");
+        b.type="button"; b.className="thumb";
+        b.innerHTML = `<img loading="lazy" alt="" src="${img.src}">`;
+        b.addEventListener("click",()=>goTo(i,true));
+        thumbsEl.appendChild(b); thumbButtons.push(b);
+      });
+    }
+
+    function setActiveThumb(){
+      thumbButtons.forEach((b,i)=>b.classList.toggle("is-active",i===index));
+      const active=thumbButtons[index];
+      if(active) active.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"});
+    }
+
+    function setProgressBase(){
+      for(let i=0;i<segs.length;i++){
+        if(i<index) segs[i].style.width="100%";
+        else if(i>index) segs[i].style.width="0%";
+      }
+    }
+
+    function showLoader(on){ loaderEl.classList.toggle("is-on",!!on); }
+
+    function loadImage(i){
+      const item=IMAGES[i]; if(!item) return;
+      showLoader(true);
+      const tmp=new Image();
+      tmp.decoding="async";
+      tmp.onload=()=>{
+        mainImg.src=item.src;
+        captionEl.textContent=item.caption||"Gallery";
+        if(lb.classList.contains("is-on")){
+          lbImg.src=item.src;
+          lbCaption.textContent=item.caption||"Gallery";
+        }
+        showLoader(false);
+      };
+      tmp.onerror=()=>{
+        captionEl.textContent="Foto yüklenemedi";
+        showLoader(false);
+      };
+      tmp.src=item.src;
+
+      setActiveThumb();
+      setProgressBase();
+    }
+
+    function goTo(i, resetTimer){
+      index=(i+IMAGES.length)%IMAGES.length;
+      loadImage(index);
+      if(resetTimer){ startTime=performance.now(); tick(); }
+    }
+    function next(reset=true){ goTo(index+1,reset); }
+    function prev(reset=true){ goTo(index-1,reset); }
+
+    function tick(){
+      if(!playing) return;
+      const now=performance.now();
+      const t=Math.min(1,(now-startTime)/STORY_DURATION);
+      if(segs[index]) segs[index].style.width=(t*100).toFixed(2)+"%";
+      if(t>=1){ startTime=now; next(false); }
+      rafId=requestAnimationFrame(tick);
+    }
+
+    function play(){
+      if(playing) return;
+      playing=true; playPauseBtn.textContent="❚❚";
+      startTime=performance.now(); tick();
+    }
+    function pause(){
+      if(!playing) return;
+      playing=false; playPauseBtn.textContent="▶";
+      if(rafId) cancelAnimationFrame(rafId); rafId=null;
+    }
+    function togglePlay(){ playing?pause():play(); }
+
+    function toggleFullscreen(){
+      if(!document.fullscreenElement) viewer.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    }
+
+    function openLightbox(){
+      const item=IMAGES[index];
+      lbImg.src=item.src;
+      lbCaption.textContent=item.caption||"Gallery";
+      lb.classList.add("is-on");
+      lb.setAttribute("aria-hidden","false");
+    }
+    function closeLightbox(){
+      lb.classList.remove("is-on");
+      lb.setAttribute("aria-hidden","true");
+    }
+
+    // Events
+    nextIcon.addEventListener("click",()=>next(true));
+    prevIcon.addEventListener("click",()=>prev(true));
+    playPauseBtn.addEventListener("click",togglePlay);
+    fsBtn.addEventListener("click",toggleFullscreen);
+
+    mainImg.addEventListener("click", openLightbox);
+    lbClose.addEventListener("click", closeLightbox);
+    lb.addEventListener("click",(e)=>{ if(e.target===lb) closeLightbox(); });
+    lbImg.addEventListener("click", closeLightbox);
+    lbNext.addEventListener("click",()=>next(true));
+    lbPrev.addEventListener("click",()=>prev(true));
+
+    window.addEventListener("keydown",(e)=>{
+      if(e.key==="ArrowRight") next(true);
+      if(e.key==="ArrowLeft") prev(true);
+      if(e.key===" "){ e.preventDefault(); togglePlay(); }
+      if(e.key==="Escape") closeLightbox();
+      if(e.key.toLowerCase()==="f") toggleFullscreen();
+    });
+
+    // Swipe
+    let touchX=null;
+    viewer.addEventListener("touchstart",(e)=>{ if(e.touches?.length) touchX=e.touches[0].clientX; },{passive:true});
+    viewer.addEventListener("touchend",(e)=>{
+      if(touchX===null) return;
+      const endX=e.changedTouches?.length?e.changedTouches[0].clientX:touchX;
+      const dx=endX-touchX; touchX=null;
+      if(Math.abs(dx)>40){ dx<0 ? next(true) : prev(true); }
+    });
+
+    viewer.addEventListener("mouseenter",pause);
+    viewer.addEventListener("mouseleave",play);
+
+    // Start
+    buildProgress();
+    buildThumbs();
+    loadImage(index);
+    startTime=performance.now();
+    tick();
+  </script>
+</body>
+</html>
